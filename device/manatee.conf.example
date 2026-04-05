@@ -1,0 +1,7 @@
+# Manatee Device Configuration
+# Copy this file to /boot/firmware/manatee.conf (Pi OS Bookworm)
+# or /boot/manatee.conf (older Pi OS)
+# then run setup.sh on the Pi — it will read this automatically.
+
+MANATEE_API_KEY=mntk_PASTE_YOUR_KEY_HERE
+MANATEE_SERVER_URL=https://your-server.example.com

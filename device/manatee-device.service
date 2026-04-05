@@ -1,0 +1,28 @@
+[Unit]
+Description=Manatee Detection System Device Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=manatee
+Group=manatee
+EnvironmentFile=/etc/manatee/config.env
+ExecStart=/opt/manatee/venv/bin/python -m manatee_client.daemon
+WorkingDirectory=/opt/manatee
+Restart=always
+RestartSec=30
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/manatee /etc/manatee
+
+# Logging (goes to journald)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=manatee-device
+
+[Install]
+WantedBy=multi-user.target
