@@ -18,6 +18,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/manatee /etc/manatee
+ReadOnlyPaths=/opt/manatee
 
 # Logging (goes to journald)
 StandardOutput=journal

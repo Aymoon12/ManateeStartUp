@@ -39,6 +39,11 @@ class Config:
     failed_dir: str = "/var/lib/manatee/failed"
     log_level: str = "INFO"
     retry_max: int = 5
+    model_path: str = "/opt/manatee/manatee_model.pt"
+    incoming_dir: str = "/var/lib/manatee/incoming"
+    archive_dir: str = "/var/lib/manatee/archive"
+    detection_log_path: str = "/var/lib/manatee/detections.jsonl"
+    inference_enabled: bool = True
     config_path: str = field(default=DEFAULT_CONFIG_PATH, repr=False)
 
     @classmethod
@@ -68,6 +73,11 @@ class Config:
             failed_dir=_get(file_values, "MANATEE_FAILED_DIR", "/var/lib/manatee/failed"),
             log_level=_get(file_values, "MANATEE_LOG_LEVEL", "INFO"),
             retry_max=int(_get(file_values, "MANATEE_RETRY_MAX", "5")),
+            model_path=_get(file_values, "MANATEE_MODEL_PATH", "/opt/manatee/manatee_model.pt"),
+            incoming_dir=_get(file_values, "MANATEE_INCOMING_DIR", "/var/lib/manatee/incoming"),
+            archive_dir=_get(file_values, "MANATEE_ARCHIVE_DIR", "/var/lib/manatee/archive"),
+            detection_log_path=_get(file_values, "MANATEE_DETECTION_LOG", "/var/lib/manatee/detections.jsonl"),
+            inference_enabled=_get(file_values, "MANATEE_INFERENCE_ENABLED", "true").lower() in ("true", "1", "yes"),
             config_path=path,
         )
 

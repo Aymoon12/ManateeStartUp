@@ -90,11 +90,13 @@ class OutboxProcessor:
         outbox_dir: str,
         failed_dir: str,
         retry_max: int = 5,
+        detection_log=None,
     ):
         self.api_client = api_client
         self.outbox_dir = Path(outbox_dir)
         self.failed_dir = Path(failed_dir)
         self.retry_max = retry_max
+        self.detection_log = detection_log
 
     def scan(self) -> list[Path]:
         """List audio files in the outbox, sorted oldest-first."""
@@ -126,6 +128,8 @@ class OutboxProcessor:
                     extra_metadata=meta.get("extra_metadata"),
                 )
                 logger.info("Uploaded detection: %s", name)
+                if self.detection_log:
+                    self.detection_log.mark_uploaded(timestamp, name)
                 _cleanup(audio_path)
                 return True
             except Exception as e:
@@ -145,6 +149,8 @@ class OutboxProcessor:
                     extra_metadata=meta.get("extra_metadata"),
                 )
                 logger.info("Uploaded background: %s", name)
+                if self.detection_log:
+                    self.detection_log.mark_uploaded(timestamp, name)
                 _cleanup(audio_path)
                 return True
             except Exception as e:

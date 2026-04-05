@@ -11,12 +11,14 @@ import shutil
 import signal
 import socket
 import sys
+import threading
 import time
 
 from manatee_client import __version__
 from manatee_client.config import Config, save_device_id
 from manatee_client.api_client import ManateeAPIClient
 from manatee_client.outbox import OutboxProcessor
+from manatee_client.detection_log import DetectionLog
 
 logger = logging.getLogger("manatee_client")
 
@@ -111,13 +113,50 @@ def main():
         logger.info("Device ID not cached, discovering via /api/devices/me...")
         device_id = _discover_device_id(client, config)
 
+    # Create detection log (shared by recorder and outbox)
+    detection_log = DetectionLog(config.detection_log_path)
+
     # Create outbox processor
     outbox = OutboxProcessor(
         api_client=client,
         outbox_dir=config.outbox_dir,
         failed_dir=config.failed_dir,
         retry_max=config.retry_max,
+        detection_log=detection_log,
     )
+
+    # Start recorder thread if inference is enabled
+    stop_event = threading.Event()
+    recorder_thread = None
+
+    if config.inference_enabled:
+        try:
+            from manatee_client.inference import EdgeDetector
+            from manatee_client.audio_source import FileWatcherSource
+            from manatee_client.recorder import Recorder
+
+            detector = EdgeDetector(config.model_path)
+            detector.load_model()
+
+            audio_source = FileWatcherSource(config.incoming_dir)
+            recorder = Recorder(
+                audio_source=audio_source,
+                detector=detector,
+                detection_log=detection_log,
+                outbox_dir=config.outbox_dir,
+                archive_dir=config.archive_dir,
+            )
+
+            recorder_thread = threading.Thread(
+                target=recorder.run, args=(stop_event,), daemon=True,
+            )
+            recorder_thread.start()
+            logger.info("Recorder thread started (incoming: %s)", config.incoming_dir)
+        except Exception as e:
+            logger.error("Failed to start recorder: %s", e)
+            logger.info("Continuing without inference (outbox-only mode)")
+    else:
+        logger.info("Inference disabled, running in outbox-only mode")
 
     logger.info(
         "Entering main loop (heartbeat every %ds, outbox: %s)",
@@ -156,6 +195,11 @@ def main():
             if not running:
                 break
             time.sleep(1)
+
+    # Signal recorder to stop
+    stop_event.set()
+    if recorder_thread:
+        recorder_thread.join(timeout=15)
 
     logger.info("Daemon stopped.")
 

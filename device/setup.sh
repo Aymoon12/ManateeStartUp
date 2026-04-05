@@ -53,7 +53,7 @@ fi
 # ── Step 4: Install system dependencies ─────────────────────────────
 echo "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv > /dev/null
+apt-get install -y -qq python3 python3-venv libsndfile1 > /dev/null
 echo "  Done."
 
 # ── Step 5: Ensure NTP is enabled (prevent clock drift) ────────────
@@ -76,6 +76,9 @@ mkdir -p /opt/manatee
 mkdir -p /etc/manatee
 mkdir -p /var/lib/manatee/outbox
 mkdir -p /var/lib/manatee/failed
+mkdir -p /var/lib/manatee/incoming
+mkdir -p /var/lib/manatee/incoming/processing
+mkdir -p /var/lib/manatee/archive
 echo "  Done."
 
 # ── Step 8: Copy client code and create venv ────────────────────────
@@ -86,8 +89,18 @@ cp "$SCRIPT_DIR/requirements.txt" /opt/manatee/
 echo "Creating Python virtual environment..."
 python3 -m venv /opt/manatee/venv
 /opt/manatee/venv/bin/pip install --upgrade pip -q
-/opt/manatee/venv/bin/pip install -r /opt/manatee/requirements.txt -q
+/opt/manatee/venv/bin/pip install -r /opt/manatee/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu -q
 echo "  Done."
+
+# ── Step 8b: Copy ML model ─────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/manatee_model.pt" ]]; then
+    echo "Copying ML model..."
+    cp "$SCRIPT_DIR/manatee_model.pt" /opt/manatee/
+    echo "  Done."
+else
+    echo "  WARNING: manatee_model.pt not found in $SCRIPT_DIR"
+    echo "  Place the model file at /opt/manatee/manatee_model.pt before starting the service."
+fi
 
 # ── Step 9: Write permanent config ─────────────────────────────────
 echo "Writing config to /etc/manatee/config.env..."
@@ -100,6 +113,11 @@ MANATEE_HEARTBEAT_INTERVAL=300
 MANATEE_OUTBOX_DIR=/var/lib/manatee/outbox
 MANATEE_FAILED_DIR=/var/lib/manatee/failed
 MANATEE_LOG_LEVEL=INFO
+MANATEE_MODEL_PATH=/opt/manatee/manatee_model.pt
+MANATEE_INCOMING_DIR=/var/lib/manatee/incoming
+MANATEE_ARCHIVE_DIR=/var/lib/manatee/archive
+MANATEE_DETECTION_LOG=/var/lib/manatee/detections.jsonl
+MANATEE_INFERENCE_ENABLED=true
 EOF
 chmod 600 /etc/manatee/config.env
 echo "  Done."
@@ -173,17 +191,19 @@ echo "=========================================="
 echo "  Manatee Device Setup Complete"
 echo "=========================================="
 echo ""
-echo "  Config:  /etc/manatee/config.env"
-echo "  Client:  /opt/manatee/"
-echo "  Outbox:  /var/lib/manatee/outbox/"
-echo "  Failed:  /var/lib/manatee/failed/"
+echo "  Config:   /etc/manatee/config.env"
+echo "  Client:   /opt/manatee/"
+echo "  Model:    /opt/manatee/manatee_model.pt"
+echo "  Incoming: /var/lib/manatee/incoming/"
+echo "  Outbox:   /var/lib/manatee/outbox/"
+echo "  Archive:  /var/lib/manatee/archive/"
+echo "  Failed:   /var/lib/manatee/failed/"
+echo "  Log:      /var/lib/manatee/detections.jsonl"
 echo ""
 echo "  View logs:      sudo journalctl -u manatee-device -f"
 echo "  Check status:   sudo systemctl status manatee-device"
 echo "  Restart:        sudo systemctl restart manatee-device"
 echo ""
-echo "  To upload audio, place files in /var/lib/manatee/outbox/ using:"
-echo "    detection_{timestamp}_{confidence}.wav"
-echo "    background_{timestamp}.wav"
-echo "  (Use hyphens instead of colons in timestamps)"
+echo "  To process audio, place files in /var/lib/manatee/incoming/"
+echo "  The device will run ML inference and upload results automatically."
 echo ""
