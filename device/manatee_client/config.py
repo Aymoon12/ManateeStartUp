@@ -44,6 +44,9 @@ class Config:
     archive_dir: str = "/var/lib/manatee/archive"
     detection_log_path: str = "/var/lib/manatee/detections.jsonl"
     inference_enabled: bool = True
+    audio_source: str = "hydrophone"  # "hydrophone" or "filewatcher"
+    audio_device: str | None = None   # sounddevice device index/name; None = system default
+    segment_duration: float = 30.0    # seconds per recording segment
     config_path: str = field(default=DEFAULT_CONFIG_PATH, repr=False)
 
     @classmethod
@@ -78,6 +81,9 @@ class Config:
             archive_dir=_get(file_values, "MANATEE_ARCHIVE_DIR", "/var/lib/manatee/archive"),
             detection_log_path=_get(file_values, "MANATEE_DETECTION_LOG", "/var/lib/manatee/detections.jsonl"),
             inference_enabled=_get(file_values, "MANATEE_INFERENCE_ENABLED", "true").lower() in ("true", "1", "yes"),
+            audio_source=_get(file_values, "MANATEE_AUDIO_SOURCE", "hydrophone"),
+            audio_device=_get(file_values, "MANATEE_AUDIO_DEVICE") or None,
+            segment_duration=float(_get(file_values, "MANATEE_SEGMENT_DURATION", "30")),
             config_path=path,
         )
 

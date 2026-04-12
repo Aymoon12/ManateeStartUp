@@ -5,3 +5,13 @@
 
 MANATEE_API_KEY=mntk_PASTE_YOUR_KEY_HERE
 MANATEE_SERVER_URL=https://your-server.example.com
+
+# Audio source: "hydrophone" for live capture, "filewatcher" for testing with pre-recorded files
+# MANATEE_AUDIO_SOURCE=hydrophone
+
+# Audio device index or name for sounddevice (leave empty for system default)
+# Run: python3 -c "import sounddevice; print(sounddevice.query_devices())" to list devices
+# MANATEE_AUDIO_DEVICE=
+
+# Recording segment duration in seconds (default 30 — matches the 60-clip inference window)
+# MANATEE_SEGMENT_DURATION=30

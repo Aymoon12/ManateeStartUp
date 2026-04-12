@@ -53,7 +53,7 @@ fi
 # ── Step 4: Install system dependencies ─────────────────────────────
 echo "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv libsndfile1 > /dev/null
+apt-get install -y -qq python3 python3-venv libsndfile1 portaudio19-dev > /dev/null
 echo "  Done."
 
 # ── Step 5: Ensure NTP is enabled (prevent clock drift) ────────────
@@ -118,6 +118,9 @@ MANATEE_INCOMING_DIR=/var/lib/manatee/incoming
 MANATEE_ARCHIVE_DIR=/var/lib/manatee/archive
 MANATEE_DETECTION_LOG=/var/lib/manatee/detections.jsonl
 MANATEE_INFERENCE_ENABLED=true
+MANATEE_AUDIO_SOURCE=hydrophone
+# MANATEE_AUDIO_DEVICE=
+# MANATEE_SEGMENT_DURATION=30
 EOF
 chmod 600 /etc/manatee/config.env
 echo "  Done."

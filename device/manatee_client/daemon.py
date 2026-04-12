@@ -132,13 +132,26 @@ def main():
     if config.inference_enabled:
         try:
             from manatee_client.inference import EdgeDetector
-            from manatee_client.audio_source import FileWatcherSource
             from manatee_client.recorder import Recorder
 
             detector = EdgeDetector(config.model_path)
             detector.load_model()
 
-            audio_source = FileWatcherSource(config.incoming_dir)
+            if config.audio_source == "hydrophone":
+                from manatee_client.audio_source import HydrophoneSource
+                audio_device = config.audio_device
+                # Convert numeric string to int for sounddevice
+                if audio_device is not None and audio_device.isdigit():
+                    audio_device = int(audio_device)
+                audio_source = HydrophoneSource(
+                    device=audio_device,
+                    sample_rate=44100,
+                    segment_duration=config.segment_duration,
+                    output_dir=config.incoming_dir,
+                )
+            else:
+                from manatee_client.audio_source import FileWatcherSource
+                audio_source = FileWatcherSource(config.incoming_dir)
             recorder = Recorder(
                 audio_source=audio_source,
                 detector=detector,
@@ -151,7 +164,10 @@ def main():
                 target=recorder.run, args=(stop_event,), daemon=True,
             )
             recorder_thread.start()
-            logger.info("Recorder thread started (incoming: %s)", config.incoming_dir)
+            logger.info(
+                "Recorder thread started (source: %s, incoming: %s)",
+                config.audio_source, config.incoming_dir,
+            )
         except Exception as e:
             logger.error("Failed to start recorder: %s", e)
             logger.info("Continuing without inference (outbox-only mode)")
