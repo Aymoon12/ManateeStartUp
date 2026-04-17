@@ -8,8 +8,13 @@ the server version exactly to get identical results.
 """
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
+
+# Disable torch dynamo/compiler — unnecessary on Pi CPU and causes
+# 'get_call_template' errors on PyTorch 2.5+.
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 
 import librosa
 import numpy as np
