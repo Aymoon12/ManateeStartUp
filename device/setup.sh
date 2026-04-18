@@ -79,6 +79,7 @@ mkdir -p /var/lib/manatee/failed
 mkdir -p /var/lib/manatee/incoming
 mkdir -p /var/lib/manatee/incoming/processing
 mkdir -p /var/lib/manatee/archive
+mkdir -p /var/lib/manatee/.numba_cache
 echo "  Done."
 
 # ── Step 8: Copy client code and create venv ────────────────────────
