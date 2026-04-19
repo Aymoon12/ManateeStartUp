@@ -9,7 +9,6 @@ User=manatee
 Group=manatee
 EnvironmentFile=/etc/manatee/config.env
 Environment=NUMBA_CACHE_DIR=/var/lib/manatee/.numba_cache
-Environment=NUMBA_DISABLE_JIT=1
 ExecStart=/opt/manatee/venv/bin/python -m manatee_client.daemon
 WorkingDirectory=/opt/manatee
 Restart=always
