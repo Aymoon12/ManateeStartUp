@@ -15,3 +15,14 @@ MANATEE_SERVER_URL=https://your-server.example.com
 
 # Recording segment duration in seconds (default 30 — matches the 60-clip inference window)
 # MANATEE_SEGMENT_DURATION=30
+
+# Detection aggregation thresholds (segment-level rule over per-clip outputs).
+# A 30s segment becomes 60 clips of 0.5s. A real manatee call lasts ~0.2–2s,
+# so only 1–4 clips are usually positive. The rule is:
+#   is_manatee = (clips_positive >= MIN_POSITIVE_CLIPS) OR (max_conf >= HIGH_CONFIDENCE_THRESHOLD)
+#
+# Lower MIN_POSITIVE_CLIPS or HIGH_CONFIDENCE_THRESHOLD for more sensitivity (more uploads, more false positives).
+# Lower CLIP_THRESHOLD only if per-clip outputs on real manatees are running below 0.5.
+# MANATEE_CLIP_THRESHOLD=0.5
+# MANATEE_MIN_POSITIVE_CLIPS=2
+# MANATEE_HIGH_CONFIDENCE_THRESHOLD=0.85

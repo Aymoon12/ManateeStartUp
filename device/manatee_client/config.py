@@ -47,6 +47,9 @@ class Config:
     audio_source: str = "hydrophone"  # "hydrophone" or "filewatcher"
     audio_device: str | None = None   # sounddevice device index/name; None = system default
     segment_duration: float = 30.0    # seconds per recording segment
+    clip_threshold: float = 0.5              # per-clip sigmoid threshold for "positive"
+    min_positive_clips: int = 2              # >= N positive clips → segment is a detection
+    high_confidence_threshold: float = 0.85  # OR a single clip this confident → detection
     config_path: str = field(default=DEFAULT_CONFIG_PATH, repr=False)
 
     @classmethod
@@ -84,6 +87,11 @@ class Config:
             audio_source=_get(file_values, "MANATEE_AUDIO_SOURCE", "hydrophone"),
             audio_device=_get(file_values, "MANATEE_AUDIO_DEVICE") or None,
             segment_duration=float(_get(file_values, "MANATEE_SEGMENT_DURATION", "30")),
+            clip_threshold=float(_get(file_values, "MANATEE_CLIP_THRESHOLD", "0.5")),
+            min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "2")),
+            high_confidence_threshold=float(
+                _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.85")
+            ),
             config_path=path,
         )
 

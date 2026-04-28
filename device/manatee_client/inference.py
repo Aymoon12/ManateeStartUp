@@ -157,11 +157,30 @@ class EdgeDetector:
 
     MAX_CLIPS = 60
     CLIP_THRESHOLD = 0.5
+    MIN_POSITIVE_CLIPS = 2
+    HIGH_CONFIDENCE_THRESHOLD = 0.85
 
-    def __init__(self, model_path: str):
+    def __init__(
+        self,
+        model_path: str,
+        clip_threshold: float | None = None,
+        min_positive_clips: int | None = None,
+        high_confidence_threshold: float | None = None,
+    ):
         self.model_path = Path(model_path)
         self.model: nn.Module | None = None
         self.device = torch.device("cpu")
+        self.clip_threshold = (
+            clip_threshold if clip_threshold is not None else self.CLIP_THRESHOLD
+        )
+        self.min_positive_clips = (
+            min_positive_clips if min_positive_clips is not None else self.MIN_POSITIVE_CLIPS
+        )
+        self.high_confidence_threshold = (
+            high_confidence_threshold
+            if high_confidence_threshold is not None
+            else self.HIGH_CONFIDENCE_THRESHOLD
+        )
 
     def load_model(self) -> None:
         if self.model is not None:
@@ -210,16 +229,25 @@ class EdgeDetector:
                 prob = torch.sigmoid(output).item()
                 clip_confidences.append(prob)
 
-        positive_confidences = [c for c in clip_confidences if c > self.CLIP_THRESHOLD]
+        positive_confidences = [c for c in clip_confidences if c > self.clip_threshold]
         clips_positive = len(positive_confidences)
         max_conf = max(clip_confidences)
 
-        if clips_positive / len(clip_confidences) >= 0.5:
-            confidence = sum(positive_confidences) / clips_positive
-            is_manatee = True
+        # Event-aware rule for sparse calls in continuous monitoring windows:
+        # sustained activity (>=N positive clips) OR a single very confident clip.
+        is_manatee = (
+            clips_positive >= self.min_positive_clips
+            or max_conf >= self.high_confidence_threshold
+        )
+
+        if is_manatee:
+            confidence = (
+                sum(positive_confidences) / clips_positive
+                if positive_confidences
+                else max_conf
+            )
         else:
             confidence = sum(clip_confidences) / len(clip_confidences)
-            is_manatee = False
 
         avg_pos = (sum(positive_confidences) / clips_positive) if clips_positive > 0 else 0.0
 

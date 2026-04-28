@@ -134,7 +134,12 @@ def main():
             from manatee_client.inference import EdgeDetector
             from manatee_client.recorder import Recorder
 
-            detector = EdgeDetector(config.model_path)
+            detector = EdgeDetector(
+                config.model_path,
+                clip_threshold=config.clip_threshold,
+                min_positive_clips=config.min_positive_clips,
+                high_confidence_threshold=config.high_confidence_threshold,
+            )
             detector.load_model()
 
             if config.audio_source == "hydrophone":
