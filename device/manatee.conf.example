@@ -26,3 +26,8 @@ MANATEE_SERVER_URL=https://your-server.example.com
 # MANATEE_CLIP_THRESHOLD=0.5
 # MANATEE_MIN_POSITIVE_CLIPS=2
 # MANATEE_HIGH_CONFIDENCE_THRESHOLD=0.85
+
+# Upload policy: only positive detections are uploaded. To keep an eye on the
+# noise floor we also ship one background sample at this cadence (seconds).
+# Lower this to upload more baseline samples, raise it to save bandwidth.
+# MANATEE_BASELINE_INTERVAL_SEC=900

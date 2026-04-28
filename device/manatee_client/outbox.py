@@ -66,10 +66,21 @@ def _read_meta(audio_path: Path) -> dict:
     return {}
 
 
+def _spec_png_path(audio_path: Path) -> Path:
+    """Return the path of the spectrogram sidecar for this audio file."""
+    return audio_path.with_suffix(audio_path.suffix + ".spec.png")
+
+
+# All sidecar suffixes appended to the audio filename.
+_SIDECAR_SUFFIXES = (".meta", ".retry", ".spec.png")
+
+
 def _cleanup(audio_path: Path) -> None:
     """Remove the audio file and all sidecar files."""
-    for suffix in ["", ".meta", ".retry"]:
-        p = audio_path.with_suffix(audio_path.suffix + suffix) if suffix else audio_path
+    if audio_path.exists():
+        audio_path.unlink()
+    for suffix in _SIDECAR_SUFFIXES:
+        p = audio_path.with_suffix(audio_path.suffix + suffix)
         if p.exists():
             p.unlink()
 
@@ -77,8 +88,10 @@ def _cleanup(audio_path: Path) -> None:
 def _move_to_failed(audio_path: Path, failed_dir: Path) -> None:
     """Move the audio file and sidecars to the failed directory."""
     failed_dir.mkdir(parents=True, exist_ok=True)
-    for suffix in ["", ".meta", ".retry"]:
-        p = audio_path.with_suffix(audio_path.suffix + suffix) if suffix else audio_path
+    if audio_path.exists():
+        shutil.move(str(audio_path), str(failed_dir / audio_path.name))
+    for suffix in _SIDECAR_SUFFIXES:
+        p = audio_path.with_suffix(audio_path.suffix + suffix)
         if p.exists():
             shutil.move(str(p), str(failed_dir / p.name))
 
@@ -114,6 +127,9 @@ class OutboxProcessor:
         name = audio_path.name
         meta = _read_meta(audio_path)
 
+        spec_path = _spec_png_path(audio_path)
+        spectrogram_path = str(spec_path) if spec_path.exists() else None
+
         # Try detection pattern first
         det_match = DETECTION_RE.match(name)
         if det_match:
@@ -126,6 +142,7 @@ class OutboxProcessor:
                     audio_path=str(audio_path),
                     audio_duration=meta.get("audio_duration"),
                     extra_metadata=meta.get("extra_metadata"),
+                    spectrogram_path=spectrogram_path,
                 )
                 logger.info("Uploaded detection: %s", name)
                 if self.detection_log:
@@ -147,6 +164,7 @@ class OutboxProcessor:
                     audio_path=str(audio_path),
                     audio_duration=meta.get("audio_duration"),
                     extra_metadata=meta.get("extra_metadata"),
+                    spectrogram_path=spectrogram_path,
                 )
                 logger.info("Uploaded background: %s", name)
                 if self.detection_log:

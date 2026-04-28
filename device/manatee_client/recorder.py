@@ -1,13 +1,14 @@
 """Recorder: audio source -> inference -> outbox + detection log.
 
-Runs in its own thread, controlled by a stop_event.
+Runs in its own thread, controlled by a stop_event. The audit trail
+(detection_log) records every segment, but only positive detections and a
+periodic baseline background sample are copied into the outbox for upload.
 """
 
 import json
 import logging
 import shutil
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from threading import Event
 
@@ -16,6 +17,7 @@ import soundfile as sf
 from manatee_client.audio_source import AudioSource
 from manatee_client.detection_log import DetectionLog, DetectionLogEntry
 from manatee_client.inference import EdgeDetector
+from manatee_client.spectrogram import render_spectrogram_png
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +30,17 @@ class Recorder:
         detection_log: DetectionLog,
         outbox_dir: str,
         archive_dir: str,
+        baseline_interval_sec: float = 900.0,
     ):
         self.audio_source = audio_source
         self.detector = detector
         self.detection_log = detection_log
         self.outbox_dir = Path(outbox_dir)
         self.archive_dir = Path(archive_dir)
+        self.baseline_interval_sec = baseline_interval_sec
+        # Initialized to 0 so the first non-detection segment after startup
+        # uploads as a baseline — proves the upload pipe works on boot.
+        self._last_baseline_at = 0.0
         self.outbox_dir.mkdir(parents=True, exist_ok=True)
         self.archive_dir.mkdir(parents=True, exist_ok=True)
 
@@ -71,45 +78,69 @@ class Recorder:
         # Build filesystem-safe timestamp: colons -> hyphens
         ts = chunk.timestamp.strftime("%Y-%m-%dT%H-%M-%SZ")
         ts_iso = chunk.timestamp.isoformat()
-
-        # Name outbox file to match outbox.py regex patterns
         ext = chunk.audio_path.suffix.lower() or ".wav"
+
+        # Decide whether this segment goes to the outbox.
+        now = time.monotonic()
         if result.is_manatee:
             outbox_name = f"detection_{ts}_{result.confidence:.2f}{ext}"
-        else:
+            should_upload = True
+            kind = "DETECTION"
+        elif now - self._last_baseline_at >= self.baseline_interval_sec:
             outbox_name = f"background_{ts}{ext}"
+            should_upload = True
+            self._last_baseline_at = now
+            kind = "baseline"
+        else:
+            outbox_name = None
+            should_upload = False
+            kind = "skipped"
 
-        outbox_path = self.outbox_dir / outbox_name
-
-        # Copy audio to outbox for upload
-        shutil.copy2(str(chunk.audio_path), str(outbox_path))
-
-        # Write .meta sidecar
-        meta = {
-            "audio_duration": audio_duration,
-            "extra_metadata": {
-                "clips_analyzed": result.clips_analyzed,
-                "clips_positive": result.clips_positive,
-                "max_confidence": result.max_confidence,
-                "avg_positive_confidence": result.avg_positive_confidence,
-                "inference_time_s": inference_time,
-                "edge_inference": True,
-            },
-        }
-        meta_path = outbox_path.with_suffix(outbox_path.suffix + ".meta")
-        meta_path.write_text(json.dumps(meta))
-
-        # Copy audio to archive for SD card retrieval
-        archive_path = self.archive_dir / outbox_name
+        # Always archive (SD card retention). Always log (audit trail).
+        archive_path = self.archive_dir / f"{ts}_{('detection' if result.is_manatee else 'background')}{ext}"
         shutil.copy2(str(chunk.audio_path), str(archive_path))
 
-        # Append to detection log
+        outbox_path = None
+        if should_upload:
+            outbox_path = self.outbox_dir / outbox_name
+            shutil.copy2(str(chunk.audio_path), str(outbox_path))
+
+            # Render spectrogram alongside the audio. If rendering fails the
+            # upload still proceeds — the server tolerates a missing PNG.
+            spec_path = outbox_path.with_suffix(outbox_path.suffix + ".spec.png")
+            try:
+                render_spectrogram_png(
+                    str(chunk.audio_path),
+                    str(spec_path),
+                    title=f"{kind} {ts_iso}",
+                )
+            except Exception as e:
+                logger.warning("Spectrogram render failed for %s: %s", outbox_name, e)
+                if spec_path.exists():
+                    spec_path.unlink(missing_ok=True)
+
+            # Write .meta sidecar
+            meta = {
+                "audio_duration": audio_duration,
+                "extra_metadata": {
+                    "clips_analyzed": result.clips_analyzed,
+                    "clips_positive": result.clips_positive,
+                    "max_confidence": result.max_confidence,
+                    "avg_positive_confidence": result.avg_positive_confidence,
+                    "inference_time_s": inference_time,
+                    "edge_inference": True,
+                },
+            }
+            meta_path = outbox_path.with_suffix(outbox_path.suffix + ".meta")
+            meta_path.write_text(json.dumps(meta))
+
+        # Append to detection log (records every segment regardless)
         entry = DetectionLogEntry(
             timestamp=ts_iso,
             confidence=result.confidence,
             is_manatee=result.is_manatee,
             audio_file=str(archive_path),
-            outbox_file=str(outbox_path),
+            outbox_file=str(outbox_path) if outbox_path else "",
             clips_analyzed=result.clips_analyzed,
             clips_positive=result.clips_positive,
             max_confidence=result.max_confidence,
@@ -122,9 +153,15 @@ class Recorder:
         except OSError:
             pass
 
-        label = "DETECTION" if result.is_manatee else "background"
-        logger.info(
-            "%s: conf=%.2f clips=%d/%d (%.1fs inference) -> %s",
-            label, result.confidence, result.clips_positive,
-            result.clips_analyzed, inference_time, outbox_name,
-        )
+        if should_upload:
+            logger.info(
+                "%s: conf=%.2f clips=%d/%d (%.1fs inference) -> %s",
+                kind, result.confidence, result.clips_positive,
+                result.clips_analyzed, inference_time, outbox_name,
+            )
+        else:
+            logger.info(
+                "skipped: conf=%.2f clips=%d/%d (next baseline in %.0fs)",
+                result.confidence, result.clips_positive, result.clips_analyzed,
+                self.baseline_interval_sec - (now - self._last_baseline_at),
+            )

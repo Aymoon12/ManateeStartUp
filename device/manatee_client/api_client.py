@@ -62,6 +62,7 @@ class ManateeAPIClient:
         audio_path: str,
         audio_duration: float | None = None,
         extra_metadata: dict | None = None,
+        spectrogram_path: str | None = None,
     ) -> dict:
         """POST /api/upload/detection — multipart form upload."""
         path = Path(audio_path)
@@ -74,14 +75,25 @@ class ManateeAPIClient:
         if extra_metadata:
             data["extra_metadata"] = json.dumps(extra_metadata)
 
-        with open(path, "rb") as f:
-            files = {"audio_file": (path.name, f, "application/octet-stream")}
+        opened: list = []
+        try:
+            audio_fh = open(path, "rb")
+            opened.append(audio_fh)
+            files = {"audio_file": (path.name, audio_fh, "application/octet-stream")}
+            if spectrogram_path:
+                spec = Path(spectrogram_path)
+                spec_fh = open(spec, "rb")
+                opened.append(spec_fh)
+                files["spectrogram_file"] = (spec.name, spec_fh, "image/png")
             resp = self._session.post(
                 self._url("/api/upload/detection"),
                 data=data,
                 files=files,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
             )
+        finally:
+            for fh in opened:
+                fh.close()
         resp.raise_for_status()
         return resp.json()
 
@@ -91,6 +103,7 @@ class ManateeAPIClient:
         audio_path: str,
         audio_duration: float | None = None,
         extra_metadata: dict | None = None,
+        spectrogram_path: str | None = None,
     ) -> dict:
         """POST /api/upload/background — multipart form upload."""
         path = Path(audio_path)
@@ -102,13 +115,24 @@ class ManateeAPIClient:
         if extra_metadata:
             data["extra_metadata"] = json.dumps(extra_metadata)
 
-        with open(path, "rb") as f:
-            files = {"audio_file": (path.name, f, "application/octet-stream")}
+        opened: list = []
+        try:
+            audio_fh = open(path, "rb")
+            opened.append(audio_fh)
+            files = {"audio_file": (path.name, audio_fh, "application/octet-stream")}
+            if spectrogram_path:
+                spec = Path(spectrogram_path)
+                spec_fh = open(spec, "rb")
+                opened.append(spec_fh)
+                files["spectrogram_file"] = (spec.name, spec_fh, "image/png")
             resp = self._session.post(
                 self._url("/api/upload/background"),
                 data=data,
                 files=files,
                 timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
             )
+        finally:
+            for fh in opened:
+                fh.close()
         resp.raise_for_status()
         return resp.json()

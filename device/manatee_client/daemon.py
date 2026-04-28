@@ -163,6 +163,7 @@ def main():
                 detection_log=detection_log,
                 outbox_dir=config.outbox_dir,
                 archive_dir=config.archive_dir,
+                baseline_interval_sec=config.baseline_interval_sec,
             )
 
             recorder_thread = threading.Thread(

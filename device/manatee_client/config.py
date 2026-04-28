@@ -50,6 +50,7 @@ class Config:
     clip_threshold: float = 0.5              # per-clip sigmoid threshold for "positive"
     min_positive_clips: int = 2              # >= N positive clips → segment is a detection
     high_confidence_threshold: float = 0.85  # OR a single clip this confident → detection
+    baseline_interval_sec: float = 900.0     # upload one background sample every N seconds
     config_path: str = field(default=DEFAULT_CONFIG_PATH, repr=False)
 
     @classmethod
@@ -91,6 +92,9 @@ class Config:
             min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "2")),
             high_confidence_threshold=float(
                 _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.85")
+            ),
+            baseline_interval_sec=float(
+                _get(file_values, "MANATEE_BASELINE_INTERVAL_SEC", "900")
             ),
             config_path=path,
         )
