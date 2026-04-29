@@ -48,8 +48,8 @@ class Config:
     audio_device: str | None = None   # sounddevice device index/name; None = system default
     segment_duration: float = 30.0    # seconds per recording segment
     clip_threshold: float = 0.5              # per-clip sigmoid threshold for "positive"
-    min_positive_clips: int = 2              # >= N positive clips → segment is a detection
-    high_confidence_threshold: float = 0.85  # OR a single clip this confident → detection
+    min_positive_clips: int = 10              # >= N positive clips → segment is a detection
+    high_confidence_threshold: float = 0.90  # OR a single clip this confident → detection
     baseline_interval_sec: float = 900.0     # upload one background sample every N seconds
     config_path: str = field(default=DEFAULT_CONFIG_PATH, repr=False)
 
@@ -89,9 +89,9 @@ class Config:
             audio_device=_get(file_values, "MANATEE_AUDIO_DEVICE") or None,
             segment_duration=float(_get(file_values, "MANATEE_SEGMENT_DURATION", "30")),
             clip_threshold=float(_get(file_values, "MANATEE_CLIP_THRESHOLD", "0.5")),
-            min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "3")),
+            min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "10")),
             high_confidence_threshold=float(
-                _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.95")
+                _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.90")
             ),
             baseline_interval_sec=float(
                 _get(file_values, "MANATEE_BASELINE_INTERVAL_SEC", "60")
