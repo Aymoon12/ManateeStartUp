@@ -31,6 +31,7 @@ class Recorder:
         outbox_dir: str,
         archive_dir: str,
         baseline_interval_sec: float = 900.0,
+        outbox_wakeup: Event | None = None,
     ):
         self.audio_source = audio_source
         self.detector = detector
@@ -38,6 +39,10 @@ class Recorder:
         self.outbox_dir = Path(outbox_dir)
         self.archive_dir = Path(archive_dir)
         self.baseline_interval_sec = baseline_interval_sec
+        # Outbox thread waits on this; we set it when a new file is staged so
+        # uploads happen within milliseconds of detection instead of waiting
+        # for the next poll tick.
+        self.outbox_wakeup = outbox_wakeup
         # Initialized to 0 so the first non-detection segment after startup
         # uploads as a baseline — proves the upload pipe works on boot.
         self._last_baseline_at = 0.0
@@ -103,10 +108,11 @@ class Recorder:
         outbox_path = None
         if should_upload:
             outbox_path = self.outbox_dir / outbox_name
-            shutil.copy2(str(chunk.audio_path), str(outbox_path))
 
-            # Render spectrogram alongside the audio. If rendering fails the
-            # upload still proceeds — the server tolerates a missing PNG.
+            # Sidecars are written BEFORE the audio file lands in the outbox.
+            # The outbox scanner picks files up by audio extension, so doing
+            # audio last prevents a tight-loop uploader from racing against
+            # a half-written fileset.
             spec_path = outbox_path.with_suffix(outbox_path.suffix + ".spec.png")
             try:
                 render_spectrogram_png(
@@ -119,7 +125,6 @@ class Recorder:
                 if spec_path.exists():
                     spec_path.unlink(missing_ok=True)
 
-            # Write .meta sidecar
             meta = {
                 "audio_duration": audio_duration,
                 "extra_metadata": {
@@ -133,6 +138,14 @@ class Recorder:
             }
             meta_path = outbox_path.with_suffix(outbox_path.suffix + ".meta")
             meta_path.write_text(json.dumps(meta))
+
+            # Audio last — its presence is what triggers the upload.
+            shutil.copy2(str(chunk.audio_path), str(outbox_path))
+
+            # Kick the outbox thread so the upload starts immediately rather
+            # than waiting for the next poll tick.
+            if self.outbox_wakeup is not None:
+                self.outbox_wakeup.set()
 
         # Append to detection log (records every segment regardless)
         entry = DetectionLogEntry(

@@ -22,8 +22,36 @@ from manatee_client.detection_log import DetectionLog
 
 logger = logging.getLogger("manatee_client")
 
+# How often the outbox thread sweeps for new files. Short enough that a
+# detection lands on the server within seconds; long enough that the empty-
+# scan cost is negligible.
+OUTBOX_POLL_INTERVAL_SEC = 5.0
+
 # Global flag for clean shutdown
 running = True
+
+
+def _outbox_loop(
+    outbox: OutboxProcessor,
+    stop_event: threading.Event,
+    wakeup: threading.Event,
+) -> None:
+    """Process the outbox on a tight cadence so detections upload in near-real-time.
+
+    The recorder sets `wakeup` after writing a new file — that drops upload
+    latency to ~milliseconds for positive detections. The poll interval still
+    fires periodically to retry failed uploads even when the recorder is idle.
+    Shutdown also sets `wakeup` so we don't block waiting for the timeout.
+    """
+    logger.info("Outbox thread started (poll every %.1fs, event-driven on writes)", OUTBOX_POLL_INTERVAL_SEC)
+    while not stop_event.is_set():
+        try:
+            outbox.process_all()
+        except Exception as e:
+            logger.warning("Outbox processing error: %s", e)
+        wakeup.wait(timeout=OUTBOX_POLL_INTERVAL_SEC)
+        wakeup.clear()
+    logger.info("Outbox thread stopped")
 
 
 def _handle_signal(signum, frame):
@@ -125,9 +153,22 @@ def main():
         detection_log=detection_log,
     )
 
-    # Start recorder thread if inference is enabled
+    # Shared shutdown signal for the recorder + outbox threads
     stop_event = threading.Event()
     recorder_thread = None
+
+    # Recorder sets this when a new file is staged in the outbox; the outbox
+    # thread waits on it for instant upload kickoff.
+    outbox_wakeup = threading.Event()
+
+    # Outbox runs in its own thread, woken on each new file and on a periodic
+    # tick (so failed uploads retry even when the recorder is idle).
+    outbox_thread = threading.Thread(
+        target=_outbox_loop,
+        args=(outbox, stop_event, outbox_wakeup),
+        daemon=True,
+    )
+    outbox_thread.start()
 
     if config.inference_enabled:
         try:
@@ -164,6 +205,7 @@ def main():
                 outbox_dir=config.outbox_dir,
                 archive_dir=config.archive_dir,
                 baseline_interval_sec=config.baseline_interval_sec,
+                outbox_wakeup=outbox_wakeup,
             )
 
             recorder_thread = threading.Thread(
@@ -186,9 +228,8 @@ def main():
         config.outbox_dir,
     )
 
-    # Main loop
+    # Main loop — heartbeats only. Outbox is on its own thread.
     while running:
-        # Send heartbeat
         try:
             disk_gb = _get_disk_space_gb()
             uptime_s = _get_uptime_seconds()
@@ -206,22 +247,19 @@ def main():
         except Exception as e:
             logger.warning("Heartbeat failed: %s", e)
 
-        # Process outbox
-        try:
-            outbox.process_all()
-        except Exception as e:
-            logger.warning("Outbox processing error: %s", e)
-
         # Sleep in small increments for responsive shutdown
         for _ in range(config.heartbeat_interval):
             if not running:
                 break
             time.sleep(1)
 
-    # Signal recorder to stop
+    # Signal worker threads to stop. Setting outbox_wakeup makes the outbox
+    # loop exit its wait() immediately instead of burning the poll interval.
     stop_event.set()
+    outbox_wakeup.set()
     if recorder_thread:
         recorder_thread.join(timeout=15)
+    outbox_thread.join(timeout=15)
 
     logger.info("Daemon stopped.")
 
