@@ -157,8 +157,8 @@ class EdgeDetector:
 
     MAX_CLIPS = 60
     CLIP_THRESHOLD = 0.5
-    MIN_POSITIVE_CLIPS = 10
-    HIGH_CONFIDENCE_THRESHOLD = 0.90
+    MIN_POSITIVE_CLIPS = 4
+    HIGH_CONFIDENCE_THRESHOLD = 1.01  # disables OR rule; only count rule fires
 
     def __init__(
         self,
