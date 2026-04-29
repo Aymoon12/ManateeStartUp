@@ -24,8 +24,8 @@ MANATEE_SERVER_URL=https://your-server.example.com
 # Lower MIN_POSITIVE_CLIPS or HIGH_CONFIDENCE_THRESHOLD for more sensitivity (more uploads, more false positives).
 # Lower CLIP_THRESHOLD only if per-clip outputs on real manatees are running below 0.5.
 # MANATEE_CLIP_THRESHOLD=0.5
-# MANATEE_MIN_POSITIVE_CLIPS=2
-# MANATEE_HIGH_CONFIDENCE_THRESHOLD=0.85
+# MANATEE_MIN_POSITIVE_CLIPS=3
+# MANATEE_HIGH_CONFIDENCE_THRESHOLD=0.90
 
 # Upload policy: only positive detections are uploaded. To keep an eye on the
 # noise floor we also ship one background sample at this cadence (seconds).
