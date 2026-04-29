@@ -212,5 +212,5 @@ class HydrophoneSource(AudioSource):
                         logger.debug("Captured segment: %s (%.1fs)", filepath.name, self.segment_duration)
 
             except Exception as e:
-                logger.error(Audio device error (retry in 10s): %s", e)
+                logger.error("Audio device error (retry in 10s): %s", e)
                 self._stop_event.wait(10.0)
