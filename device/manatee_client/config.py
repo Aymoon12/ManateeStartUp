@@ -89,12 +89,12 @@ class Config:
             audio_device=_get(file_values, "MANATEE_AUDIO_DEVICE") or None,
             segment_duration=float(_get(file_values, "MANATEE_SEGMENT_DURATION", "30")),
             clip_threshold=float(_get(file_values, "MANATEE_CLIP_THRESHOLD", "0.5")),
-            min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "2")),
+            min_positive_clips=int(_get(file_values, "MANATEE_MIN_POSITIVE_CLIPS", "3")),
             high_confidence_threshold=float(
-                _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.85")
+                _get(file_values, "MANATEE_HIGH_CONFIDENCE_THRESHOLD", "0.95")
             ),
             baseline_interval_sec=float(
-                _get(file_values, "MANATEE_BASELINE_INTERVAL_SEC", "900")
+                _get(file_values, "MANATEE_BASELINE_INTERVAL_SEC", "60")
             ),
             config_path=path,
         )
