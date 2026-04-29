@@ -157,8 +157,8 @@ class EdgeDetector:
 
     MAX_CLIPS = 60
     CLIP_THRESHOLD = 0.5
-    MIN_POSITIVE_CLIPS = 2
-    HIGH_CONFIDENCE_THRESHOLD = 0.85
+    MIN_POSITIVE_CLIPS = 3
+    HIGH_CONFIDENCE_THRESHOLD = 0.94
 
     def __init__(
         self,
